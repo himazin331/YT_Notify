@@ -1,4 +1,3 @@
-# YT_Notify
 ## 機械学習実行中の待ち時間にYoutube動画のURLをLINEで送信する。
 
 ### 前提
