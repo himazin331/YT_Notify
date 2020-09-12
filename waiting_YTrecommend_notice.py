@@ -24,31 +24,38 @@ class YoutubeVideoGet():
 
     # 動画情報取得
     def getVideo(self, search_list):
-        # 動画取得
-        search_response = self.yt_api.search().list(
-            part='snippet',
-            q=random.choice(search_list),
-            type='video'
-        ).execute()
 
-        # ランダムピックアップ
-        video = search_response['items'][random.randint(0, len(search_response['items'])-1)]
+        try:
+            # 動画取得
+            search_response = self.yt_api.search().list(
+                part='snippet',
+                q=random.choice(search_list),
+                maxResults=50,
+                type='video'
+            ).execute()
 
-        # 動画の長さ取得
-        video_content = self.yt_api.videos().list(
-            part = 'contentDetails', 
-            id = video['id']['videoId']
-        ).execute()
-        duration = video_content['items'][0]['contentDetails']['duration'] # 動画の長さ
+            # ランダムピックアップ
+            video = search_response['items'][random.randint(0, len(search_response['items'])-1)]
+
+            # 動画の長さ取得
+            video_content = self.yt_api.videos().list(
+                part = 'contentDetails', 
+                id = video['id']['videoId']
+            ).execute()
+            duration = video_content['items'][0]['contentDetails']['duration'] # 動画の長さ
         
-        # ISO-8601 Duration -> Seconds
-        video_length = self.calcTime_duration2sec(duration)
+            # ISO-8601 Duration -> Seconds
+            video_length = self.calcTime_duration2sec(duration)
 
-        # サムネイルダウンロード
-        thumb_url = video['snippet']['thumbnails']['high']['url'] # サムネイル
-        self.download_thumb(thumb_url, self.out_path)
+            # サムネイルダウンロード
+            thumb_url = video['snippet']['thumbnails']['high']['url'] # サムネイル
+            self.download_thumb(thumb_url, self.out_path)
 
-        return video, video_length
+            return video, video_length
+
+        except Exception as e:
+            print(e)
+            return None, -1
 
     # サムネイルダウンロード
     def download_thumb(self, thumb_url, out_path):
@@ -105,33 +112,40 @@ class LineNotifySend():
 
     # メッセージ送信
     def sendMessage(self, video, length):
-        video_title = video['snippet']['title'] # タイトル
-        video_url = 'https://www.youtube.com/watch?v=' + video['id']['videoId'] # 動画URL
+        try:
+            video_title = video['snippet']['title'] # タイトル
+            video_url = 'https://www.youtube.com/watch?v=' + video['id']['videoId'] # 動画URL
         
-        # サムネイル読み込み
-        with open(self.out_path, 'rb') as thumb:
-            thumb_data = thumb.read()
+            # サムネイル読み込み
+            with open(self.out_path, 'rb') as thumb:
+                thumb_data = thumb.read()
 
-        # 時間計算
-        time = self.calcTime_sec2time(length)
+            # 時間計算
+            time = self.calcTime_sec2time(length)
 
-        # メッセージ内容
-        message = "\n" + video_title + "\n[" + time + "]\n" + video_url
-        payload = {'message': message}
-        # サムネイル
-        thumb = {'imageFile' : thumb_data}
+            # メッセージ内容
+            message = "\n" + video_title + "\n[" + time + "]\n" + video_url
+            payload = {'message': message}
+            # サムネイル
+            thumb = {'imageFile' : thumb_data}
         
-        # Line送信
-        requests.post(self.url, headers=self.line_headers, params=payload, files=thumb)
+            # Line送信
+            requests.post(self.url, headers=self.line_headers, params=payload, files=thumb)
 
-        # サムネイル削除
-        os.remove(self.out_path)
+            # サムネイル削除
+            os.remove(self.out_path)
+
+        except requests.exceptions.RequestException as e:
+            print(e)
 
     # ML完了時メッセージ送信
     def sendFinishMessage(self):
-        message = "機械学習が完了しました！！作業に戻ってください。"
-        payload = {'message' : message}
-        requests.post(self.url, headers=self.line_headers, params=payload)
+        try:
+            message = "機械学習が完了しました！！作業に戻ってください。"
+            payload = {'message' : message}
+            requests.post(self.url, headers=self.line_headers, params=payload)
+        except requests.exceptions.RequestException as e:
+            print(e)
 
     # Seconds -> 時刻
     def calcTime_sec2time(self, length):
@@ -147,8 +161,9 @@ class LineNotifySend():
 def main():
 
     # 検索ワードリスト
-    search_list = ['機械学習', '猫', 'ディープラーニング', 'アンパンマン']
+    search_list = ['猫 かわいい', 'インコ', '柴犬 子犬', '自作PC']
 
+    # サムネイル一時保存先
     out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'YTthumb_temp.jpg')
     
     # Youtube動画取得
@@ -194,6 +209,8 @@ def main():
                         else: # 'Anacon3\python.exe'が含まれている -> 機械学習実行中
                             if delay == 0:
                                 video, length = YTget.getVideo(search_list) # 動画取得
+                                if video == None and length == -1:
+                                    continue
                                 LNsend.sendMessage(video, length) # 動画URL送信
                             delay += 1
 
