@@ -13,6 +13,7 @@ import wmi
 import subprocess
 import time
 
+import argparse as arg
 
 # 動画情報取得
 class YoutubeVideoGet():
@@ -24,7 +25,6 @@ class YoutubeVideoGet():
 
     # 動画情報取得
     def getVideo(self, search_list):
-
         try:
             # 動画取得
             search_response = self.yt_api.search().list(
@@ -115,7 +115,7 @@ class LineNotifySend():
         try:
             video_title = video['snippet']['title'] # タイトル
             video_url = 'https://www.youtube.com/watch?v=' + video['id']['videoId'] # 動画URL
-        
+
             # サムネイル読み込み
             with open(self.out_path, 'rb') as thumb:
                 thumb_data = thumb.read()
@@ -128,7 +128,7 @@ class LineNotifySend():
             payload = {'message': message}
             # サムネイル
             thumb = {'imageFile' : thumb_data}
-        
+
             # Line送信
             requests.post(self.url, headers=self.line_headers, params=payload, files=thumb)
 
@@ -158,23 +158,101 @@ class LineNotifySend():
         time = '{:02}:{:02}:{:02}'.format(h, m, s)
         return time
 
-def main():
+# 検索ワード設定
+def searchword_setting(menu=None):
+    # 任意起動
+    if menu == None:
+        print("============================")
+        menu = input("| 検索ワード設定: 1\n| 検索ワードリスト消去: 2\n| 終了: Others\n>> ")
+        print("============================\n")
+    else: # 必須起動
+        menu = "1"
 
-    # 検索ワードリスト
-    search_list = ['猫 かわいい', 'インコ', '柴犬 子犬', '自作PC']
+    # 検索ワード設定
+    if menu == "1":
+        word_list = []
+        while True:
+
+            word = input("検索ワードを入力 : ") # 検索ワード
+            # 空文字入力時 -> continue
+            if word == "":
+                print("E 無効な値です。")
+                continue
+            else:
+                word_list.append(word)
+
+            # 継続意思確認
+            yn = input("I 続けますか？ y/n : ")
+            if yn == "n":
+                break
+
+        # 検索ワード書き込み
+        with open("search-word-list.txt", mode="a") as f:
+            f.write("\n")
+            f.write('\n'.join(word_list))
+
+    elif menu == "2": # 検索ワードリスト削除
+        # 検索ワードリストが存在する
+        if os.path.isfile("search-word-list.txt"):
+
+            # 削除意思確認
+            confirmation = input("C 削除後、復元はできません。\nC 確認のために \" 削除 \" と入力してください。\n>> ")
+
+            # 意思確認 成功
+            if confirmation == "削除":
+                os.remove("search-word-list.txt") # 削除
+                print("I 削除しました。")
+            else: # 意思確認 失敗
+                print("E 失敗したため、終了します。")
+
+        else: # 検索ワードリストが存在しない
+            print("E ファイルが存在しません。")
+    else: # 終了
+        pass
+
+    print("")
+
+def main():
+    print("ML Notice & Youtube Movie URL Send\n")
+
+    # コマンドラインオプション
+    parser = arg.ArgumentParser(description='ML Notice & Youtube Movie URL Send')
+    parser.add_argument('--search_word', '-s', action='store_true',
+                            help='検索ワードの設定')
+    args = parser.parse_args()
+    
+    # 任意起動
+    if args.search_word == True:
+        searchword_setting()
+        return 0
+
+    # 検索ワード読み込み
+    flg = 0
+    while flg == 0:
+        # 検索ワードリストが存在する
+        if os.path.isfile("search-word-list.txt"):
+            # 検索ワード読み込み
+            with open("search-word-list.txt", mode="r") as f:
+                search_list = [s.strip() for s in f.readlines()]
+                search_list = search_list[1:]
+            flg = 1
+        else: # 検索ワードリストが存在しない
+            print("I 検索ワードリストが存在しないため設定してください。")
+            searchword_setting(0) # 検索ワード設定
 
     # サムネイル一時保存先
     out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'YTthumb_temp.jpg')
     
     # Youtube動画取得
     YTget = YoutubeVideoGet(out_path)
-    
     # LINE Notify送信
     LNsend = LineNotifySend(out_path)
 
     c = wmi.WMI()
     cmd = 'nvidia-smi'
     cre_process_watcher = c.Win32_Process.watch_for("creation") 
+
+    print("Begin...\n")
 
     while True:
         delay = 0
@@ -221,6 +299,8 @@ def main():
                     continue
             except subprocess.CalledProcessError as e:
                 print(e)
+
+    print("...Close")
 
 if __name__ == '__main__':
     main()
