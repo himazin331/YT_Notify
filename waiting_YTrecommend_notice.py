@@ -6,7 +6,6 @@ import urllib.error
 
 import re
 import os
-import sys
 import random
 
 import wmi
@@ -14,6 +13,7 @@ import subprocess
 import time
 
 import argparse as arg
+
 
 # 動画情報取得
 class YoutubeVideoGet():
@@ -35,24 +35,23 @@ class YoutubeVideoGet():
             ).execute()
 
             # ランダムピックアップ
-            video = search_response['items'][random.randint(0, len(search_response['items'])-1)]
+            video = search_response['items'][random.randint(0, len(search_response['items']) - 1)]
 
             # 動画の長さ取得
             video_content = self.yt_api.videos().list(
-                part = 'contentDetails', 
-                id = video['id']['videoId']
+                part='contentDetails',
+                id=video['id']['videoId']
             ).execute()
-            duration = video_content['items'][0]['contentDetails']['duration'] # 動画の長さ
-        
+            duration = video_content['items'][0]['contentDetails']['duration']  # 動画の長さ
+
             # ISO-8601 Duration -> Seconds
             video_length = self.calcTime_duration2sec(duration)
 
             # サムネイルダウンロード
-            thumb_url = video['snippet']['thumbnails']['high']['url'] # サムネイル
+            thumb_url = video['snippet']['thumbnails']['high']['url']  # サムネイル
             self.download_thumb(thumb_url, self.out_path)
 
             return video, video_length
-
         except Exception as e:
             print(e)
             return None, -1
@@ -73,7 +72,7 @@ class YoutubeVideoGet():
 
     # ISO-8601 Duration -> Seconds
     def calcTime_duration2sec(self, duration):
-        time_list = re.findall('[0-9]+[D|H|M|S]+', duration) # 時間情報のみ抽出
+        time_list = re.findall('[0-9]+[D|H|M|S]+', duration)  # 時間情報のみ抽出
 
         video_length = 0
         # 計算
@@ -101,6 +100,7 @@ class YoutubeVideoGet():
 
         return video_length
 
+
 # Notify送信
 class LineNotifySend():
     # Line Notify API セットアップ
@@ -113,8 +113,8 @@ class LineNotifySend():
     # メッセージ送信
     def sendMessage(self, video, length):
         try:
-            video_title = video['snippet']['title'] # タイトル
-            video_url = 'https://www.youtube.com/watch?v=' + video['id']['videoId'] # 動画URL
+            video_title = video['snippet']['title']  # タイトル
+            video_url = 'https://www.youtube.com/watch?v=' + video['id']['videoId']  # 動画URL
 
             # サムネイル読み込み
             with open(self.out_path, 'rb') as thumb:
@@ -127,7 +127,7 @@ class LineNotifySend():
             message = "\n" + video_title + "\n[" + time + "]\n" + video_url
             payload = {'message': message}
             # サムネイル
-            thumb = {'imageFile' : thumb_data}
+            thumb = {'imageFile': thumb_data}
 
             # Line送信
             requests.post(self.url, headers=self.line_headers, params=payload, files=thumb)
@@ -142,7 +142,7 @@ class LineNotifySend():
     def sendFinishMessage(self):
         try:
             message = "機械学習が完了しました！！作業に戻ってください。"
-            payload = {'message' : message}
+            payload = {'message': message}
             requests.post(self.url, headers=self.line_headers, params=payload)
         except requests.exceptions.RequestException as e:
             print(e)
@@ -158,14 +158,15 @@ class LineNotifySend():
         time = '{:02}:{:02}:{:02}'.format(h, m, s)
         return time
 
+
 # 検索ワード設定
 def searchword_setting(menu=None):
     # 任意起動
-    if menu == None:
+    if menu is None:
         print("============================")
         menu = input("| 検索ワード設定: 1\n| 検索ワードリスト消去: 2\n| 終了: Others\n>> ")
         print("============================\n")
-    else: # 必須起動
+    else:  # 必須起動
         menu = "1"
 
     # 検索ワード設定
@@ -173,7 +174,7 @@ def searchword_setting(menu=None):
         word_list = []
         while True:
 
-            word = input("検索ワードを入力 : ") # 検索ワード
+            word = input("検索ワードを入力 : ")  # 検索ワード
             # 空文字入力時 -> continue
             if word == "":
                 print("E 無効な値です。")
@@ -190,8 +191,7 @@ def searchword_setting(menu=None):
         with open("search-word-list.txt", mode="a") as f:
             f.write("\n")
             f.write('\n'.join(word_list))
-
-    elif menu == "2": # 検索ワードリスト削除
+    elif menu == "2":  # 検索ワードリスト削除
         # 検索ワードリストが存在する
         if os.path.isfile("search-word-list.txt"):
 
@@ -200,17 +200,17 @@ def searchword_setting(menu=None):
 
             # 意思確認 成功
             if confirmation == "削除":
-                os.remove("search-word-list.txt") # 削除
+                os.remove("search-word-list.txt")  # 削除
                 print("I 削除しました。")
-            else: # 意思確認 失敗
+            else:  # 意思確認 失敗
                 print("E 失敗したため、終了します。")
 
-        else: # 検索ワードリストが存在しない
+        else:  # 検索ワードリストが存在しない
             print("E ファイルが存在しません。")
-    else: # 終了
+    else:  # 終了
         pass
-
     print("")
+
 
 def main():
     print("ML Notice & Youtube Movie URL Send\n")
@@ -222,7 +222,7 @@ def main():
     args = parser.parse_args()
     
     # 任意起動
-    if args.search_word == True:
+    if args.search_word is True:
         searchword_setting()
         return 0
 
@@ -236,13 +236,13 @@ def main():
                 search_list = [s.strip() for s in f.readlines()]
                 search_list = search_list[1:]
             flg = 1
-        else: # 検索ワードリストが存在しない
+        else:  # 検索ワードリストが存在しない
             print("I 検索ワードリストが存在しないため設定してください。")
-            searchword_setting(0) # 検索ワード設定
+            searchword_setting(0)  # 検索ワード設定
 
     # サムネイル一時保存先
-    out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'YTthumb_temp.jpg')
-    
+    out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'YTthumb_temp.jpg')
+
     # Youtube動画取得
     YTget = YoutubeVideoGet(out_path)
     # LINE Notify送信
@@ -250,7 +250,7 @@ def main():
 
     c = wmi.WMI()
     cmd = 'nvidia-smi'
-    cre_process_watcher = c.Win32_Process.watch_for("creation") 
+    cre_process_watcher = c.Win32_Process.watch_for("creation")
 
     print("Begin...\n")
 
@@ -282,25 +282,25 @@ def main():
                         # 'Anacon3\python.exe'が含まれていない -> 機械学習完了
                         if res.find("Anaconda3\\python.exe") == -1:
                             print("Machine learning has been completed.")
-                            LNsend.sendFinishMessage() # 完了を通知
+                            LNsend.sendFinishMessage()  # 完了を通知
                             break
-                        else: # 'Anacon3\python.exe'が含まれている -> 機械学習実行中
+                        else:  # 'Anacon3\python.exe'が含まれている -> 機械学習実行中
                             if delay == 0:
-                                video, length = YTget.getVideo(search_list) # 動画取得
-                                if video == None and length == -1:
+                                video, length = YTget.getVideo(search_list)  # 動画取得
+                                if video is None and length == -1:
                                     continue
-                                LNsend.sendMessage(video, length) # 動画URL送信
+                                LNsend.sendMessage(video, length)  # 動画URL送信
                             delay += 1
 
                             # 動画が見終わる頃合いになったら -> 動画URL送信
-                            if delay > int(int(length*0.95)/5):
+                            if delay > int(int(length * 0.95) / 5):
                                 delay = 0
                 else:
                     continue
             except subprocess.CalledProcessError as e:
                 print(e)
-
     print("...Close")
+
 
 if __name__ == '__main__':
     main()
